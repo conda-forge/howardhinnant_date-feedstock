@@ -17,3 +17,5 @@ macos_min_version:
 pin_run_as_build:
   libcurl:
     max_pin: x
+target_platform:
+- osx-64
