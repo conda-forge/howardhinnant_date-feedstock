@@ -178,4 +178,4 @@ Feedstock Maintainers
 =====================
 
 * [@pidefrem](https://github.com/pidefrem/)
-
+* [@gabm](https://github.com/gabm/)
