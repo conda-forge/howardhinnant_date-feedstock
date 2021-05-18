@@ -5,9 +5,13 @@ Home: http://github.com/HowardHinnant/date
 
 Package license: MIT
 
-Feedstock license: BSD-3-Clause
+Feedstock license: [BSD-3-Clause](https://github.com/conda-forge/howardhinnant_date-feedstock/blob/master/LICENSE.txt)
 
 Summary: A C++ date and time library
+
+Development: http://github.com/HowardHinnant/date
+
+Documentation: http://howardhinnant.github.io/date/date.html
 
 A date and time library based on the C++11/14/17 <chrono> header
 
@@ -99,6 +103,7 @@ Installing `howardhinnant_date` from the `conda-forge` channel can be achieved b
 
 ```
 conda config --add channels conda-forge
+conda config --set channel_priority strict
 ```
 
 Once the `conda-forge` channel has been enabled, `howardhinnant_date` can be installed with:
@@ -169,13 +174,14 @@ build distinct package versions.
 
 In order to produce a uniquely identifiable distribution:
  * If the version of a package **is not** being increased, please add or increase
-   the [``build/number``](https://conda.io/docs/user-guide/tasks/build-packages/define-metadata.html#build-number-and-string).
+   the [``build/number``](https://docs.conda.io/projects/conda-build/en/latest/resources/define-metadata.html#build-number-and-string).
  * If the version of a package **is** being increased, please remember to return
-   the [``build/number``](https://conda.io/docs/user-guide/tasks/build-packages/define-metadata.html#build-number-and-string)
+   the [``build/number``](https://docs.conda.io/projects/conda-build/en/latest/resources/define-metadata.html#build-number-and-string)
    back to 0.
 
 Feedstock Maintainers
 =====================
 
-* [@pidefrem](https://github.com/pidefrem/)
 * [@gabm](https://github.com/gabm/)
+* [@pidefrem](https://github.com/pidefrem/)
+
