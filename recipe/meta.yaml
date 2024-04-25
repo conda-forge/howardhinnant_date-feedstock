@@ -12,7 +12,7 @@ source:
   sha256: {{ sha256 }}
 
 build:
-  number: 2
+  number: 3
   skip: true  # [win and vc<14]
 
 requirements:
@@ -23,9 +23,7 @@ requirements:
     - pkg-config
     - gnuconfig
   host:
-    - libcurl
-  run:
-    - libcurl
+    - libcurl         # [win]
 
 test:
   commands:
