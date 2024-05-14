@@ -22,8 +22,6 @@ requirements:
     - make  # [unix]
     - pkg-config
     - gnuconfig
-  host:
-    - libcurl         # [win]
 
 test:
   commands:
