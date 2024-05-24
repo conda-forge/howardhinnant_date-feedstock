@@ -23,7 +23,7 @@ requirements:
     - make  # [unix]
     - pkg-config
     - gnuconfig
-    - tzdata # [win]
+    - tzdata  # [win]
 
 test:
   commands:
