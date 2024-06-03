@@ -10,19 +10,24 @@ source:
   fn: {{ name }}-{{ version }}.tar.gz
   url: https://github.com/HowardHinnant/date/archive/v{{ version }}.tar.gz
   sha256: {{ sha256 }}
+  patches:
+    - use-conda-tzdb-on-all-platforms.patch 
 
 build:
-  number: 3
+  number: 4
   skip: true  # [win and vc<14]
 
 requirements:
   build:
     - {{ compiler('cxx') }}
-    - {{ stdlib('c') }}
     - cmake
     - make  # [unix]
     - pkg-config
     - gnuconfig
+  host:
+    - dirent  # [win]
+  run:
+    - tzdata
 
 test:
   commands:
