@@ -211,6 +211,7 @@ Feedstock Maintainers
 =====================
 
 * [@JohanMabille](https://github.com/JohanMabille/)
+* [@apmorton](https://github.com/apmorton/)
 * [@gabm](https://github.com/gabm/)
 * [@jjerphan](https://github.com/jjerphan/)
 * [@pidefrem](https://github.com/pidefrem/)
