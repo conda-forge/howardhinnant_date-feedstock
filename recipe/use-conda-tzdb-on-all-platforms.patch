@@ -1,19 +1,29 @@
-From 6effd1dbd74475d26a38e3c711434f55423c86ae Mon Sep 17 00:00:00 2001
-From: Sylvain Corlay <sylvain.corlay@gmail.com>
-Date: Fri, 31 May 2024 14:19:04 +0200
-Subject: [PATCH] use conda tzdb on all platforms
+From 348d1b7e74fc1de937aadcdf70afc3a7fef1564e Mon Sep 17 00:00:00 2001
+From: Anthony Louis <anthony@simbioseventures.com>
+Date: Fri, 16 Apr 2021 22:08:32 -0300
+Subject: [PATCH] Use conda tzdb on all platforms
 
 ---
- CMakeLists.txt    |  2 +-
- include/date/tz.h |  6 -----
- src/tz.cpp        | 65 +++++++++++++----------------------------------
- 3 files changed, 19 insertions(+), 54 deletions(-)
+ CMakeLists.txt                |   4 +-
+ include/date/tz.h             |   6 --
+ src/tz.cpp                    | 122 +++++++++++++++++++++-------------
+ test/date_test/parse.pass.cpp |  15 +++++
+ 4 files changed, 91 insertions(+), 56 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 6885a43..aa470fe 100644
+index 012512a..1a0edab 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -132,7 +132,7 @@ if( BUILD_TZ_LIB )
+@@ -116,7 +116,7 @@ if( BUILD_TZ_LIB )
+           src/ios.mm )
+     endif()
+     add_library( date::date-tz ALIAS date-tz )
+-    target_link_libraries( date-tz PUBLIC date )
++    target_link_libraries( date-tz PUBLIC date ${CMAKE_DL_LIBS} )
+     target_include_directories( date-tz PUBLIC
+         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+         $<INSTALL_INTERFACE:include> )
+@@ -127,7 +127,7 @@ if( BUILD_TZ_LIB )
        target_compile_definitions( date-tz PRIVATE AUTO_DOWNLOAD=1 HAS_REMOTE_API=1 )
      endif()
  
@@ -23,7 +33,7 @@ index 6885a43..aa470fe 100644
      else()
        target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
 diff --git a/include/date/tz.h b/include/date/tz.h
-index 0f9f2c5..3514559 100644
+index 4921068..03c0042 100644
 --- a/include/date/tz.h
 +++ b/include/date/tz.h
 @@ -82,12 +82,6 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
@@ -40,10 +50,18 @@ index 0f9f2c5..3514559 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 82e4312..638f9bd 100644
+index 26babbd..a220826 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
-@@ -457,51 +457,12 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+@@ -154,6 +154,7 @@
+ #    include <sys/wait.h>
+ #    include <sys/types.h>
+ #  endif //!USE_SHELL_API
++#  include <dlfcn.h>
+ #endif  // !_WIN32
+ 
+ 
+@@ -341,54 +342,69 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
  
  #endif  // USE_OS_TZDB
  
@@ -92,12 +110,70 @@ index 82e4312..638f9bd 100644
 -    return result.substr(0, i);
 -#      endif
 -#  endif  // __APPLE__
-+    std::string CONDA_PREFIX = std::getenv("CONDA_PREFIX");
-+    return CONDA_PREFIX + folder_delimiter + "share" + folder_delimiter + "zoneinfo";
++    // get path to library we're in, to determine our location relative to $PREFIX;
++    // with help from the MIT-licensed https://github.com/gpakosz/whereami
++    void* addr = __builtin_extract_return_addr(__builtin_return_address(0));
++    char* this_lib;
++    int i;
++    // <string> is included through <chrono>
++    static std::string tz_dir;
++    if (!tz_dir.empty()) {
++      return tz_dir;
++    }
++#ifdef _WIN32
++    wchar_t buffer[MAX_PATH];
++    HMODULE hm = NULL;
++    // non-zero return means success
++    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
++                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++                          (LPCSTR) addr, &hm)) {
++      // returns length of string (not counting null byte), see
++      // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew#return-value
++      DWORD total_length = GetModuleFileNameW(hm, buffer, sizeof(buffer));
++      if (total_length) {
++        this_lib = (char*)malloc(total_length + 1);
++        memcpy(this_lib, buffer, total_length);
++#else
++    char buffer[PATH_MAX];
++    Dl_info info;
++
++    if (dladdr(addr, &info)) {
++      char* resolved = realpath(info.dli_fname, buffer);
++      if (resolved) {
++        int total_length = (int)strlen(resolved);
++        this_lib = (char*)malloc(total_length + 1);
++        memcpy(this_lib, resolved, total_length);
++#endif
++
++        for (i = (int)total_length - 1; i >= 0; --i) {
++          if (this_lib[i] == folder_delimiter) {
++            // set to null byte so the string ends before the basename
++            this_lib[i] = '\0';
++            break;
++          }
++        }
++        std::string tmp{this_lib};
++        tmp += folder_delimiter;
++        tmp += "..";
++        tmp += folder_delimiter;
++        tmp += "share";
++        tmp += folder_delimiter;
++        tmp += "zoneinfo";
++        // std::string constructor for tz_dir deep-copies
++        free(this_lib);
++        tz_dir = tmp;
++        return tz_dir;
++      }
++    }
++
++    throw std::runtime_error("failed to resolve conda zoneinfo path");
  }
  
- static
-@@ -512,8 +473,6 @@ get_tz_dir()
+-static
+ const std::string&
+ get_tz_dir()
+ {
+@@ -396,8 +412,6 @@ get_tz_dir()
      return tz_dir;
  }
  
@@ -106,7 +182,7 @@ index 82e4312..638f9bd 100644
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -607,7 +566,6 @@ parse_month(std::istream& in)
+@@ -491,7 +505,6 @@ parse_month(std::istream& in)
      return static_cast<unsigned>(++m);
  }
  
@@ -114,7 +190,7 @@ index 82e4312..638f9bd 100644
  
  #ifdef _WIN32
  
-@@ -811,6 +769,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
+@@ -703,6 +716,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
  
  #endif  // _WIN32
  
@@ -122,7 +198,7 @@ index 82e4312..638f9bd 100644
  // Parsing helpers
  
  static
-@@ -1840,9 +1799,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
+@@ -1732,9 +1746,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
  {
@@ -138,7 +214,7 @@ index 82e4312..638f9bd 100644
  };
  
  static
-@@ -2149,8 +2114,8 @@ time_zone::init_impl()
+@@ -2041,8 +2061,8 @@ time_zone::init_impl()
  {
      using namespace std;
      using namespace std::chrono;
@@ -149,7 +225,7 @@ index 82e4312..638f9bd 100644
      if (!inf.is_open())
          throw std::runtime_error{"Unable to open " + name};
      inf.exceptions(std::ios::failbit | std::ios::badbit);
-@@ -3825,7 +3790,13 @@ locate_zone(std::string_view tz_name)
+@@ -3633,7 +3653,13 @@ locate_zone(std::string_view tz_name)
  locate_zone(const std::string& tz_name)
  #endif
  {
@@ -164,6 +240,32 @@ index 82e4312..638f9bd 100644
  }
  
  #if USE_OS_TZDB
+diff --git a/test/date_test/parse.pass.cpp b/test/date_test/parse.pass.cpp
+index fe822c6..a7fecfd 100644
+--- a/test/date_test/parse.pass.cpp
++++ b/test/date_test/parse.pass.cpp
+@@ -623,6 +623,21 @@ test_p()
+         assert(!in.bad());
+         assert(tp == sys_days{2016_y/12/11} + hours{23});
+     }
++    {
++        std::istringstream in{"1986-12-01 01:01:01 pm"};
++        sys_time<seconds> tp;
++        in >> parse("%Y-%m-%d %I:%M:%S %p", tp);
++        assert(!in.fail());
++        assert(!in.bad());
++        assert(tp == sys_days{1986_y/12/01} + hours{13} + minutes{01} + seconds{01});
++    }
++    {
++        std::istringstream in{"1986-12-01 01:01:01"};
++        sys_time<seconds> tp;
++        in >> parse("%Y-%m-%d %I:%M:%S", tp);
++        // The test will fail because %I needs the %p option to shows if it is AM or PM
++        assert(in.fail());
++    }
+ }
+ 
+ void
 -- 
-2.40.1
+2.37.1.65.g4e2a4d1dd4.dirty
 
