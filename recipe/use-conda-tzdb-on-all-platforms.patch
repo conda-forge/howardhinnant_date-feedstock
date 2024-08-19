@@ -1,24 +1,24 @@
-From 966705caf7aa37a5ae69cd4c580b64bb20c83354 Mon Sep 17 00:00:00 2001
+From a94f960ae1704aa57400bec6d30d63b1f3925905 Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
-Date: Mon, 19 Aug 2024 17:21:02 +0000
+Date: Mon, 19 Aug 2024 19:17:11 +0000
 Subject: [PATCH] Use conda tzdb on all platforms
 
 ---
  CMakeLists.txt    |   4 +-
- include/date/tz.h |   6 +++
- src/tz.cpp        | 122 ++++++++++++++++++----------------------------
- 3 files changed, 56 insertions(+), 76 deletions(-)
+ include/date/tz.h |   6 ---
+ src/tz.cpp        | 122 ++++++++++++++++++++++++++++------------------
+ 3 files changed, 76 insertions(+), 56 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 1a0edab..012512a 100644
+index 012512a..1a0edab 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -116,7 +116,7 @@ if( BUILD_TZ_LIB )
            src/ios.mm )
      endif()
      add_library( date::date-tz ALIAS date-tz )
--    target_link_libraries( date-tz PUBLIC date ${CMAKE_DL_LIBS} )
-+    target_link_libraries( date-tz PUBLIC date )
+-    target_link_libraries( date-tz PUBLIC date )
++    target_link_libraries( date-tz PUBLIC date ${CMAKE_DL_LIBS} )
      target_include_directories( date-tz PUBLIC
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
          $<INSTALL_INTERFACE:include> )
@@ -26,216 +26,216 @@ index 1a0edab..012512a 100644
        target_compile_definitions( date-tz PRIVATE AUTO_DOWNLOAD=1 HAS_REMOTE_API=1 )
      endif()
  
--    if ( USE_SYSTEM_TZ_DB AND NOT MANUAL_TZ_DB )
-+    if ( USE_SYSTEM_TZ_DB AND NOT WIN32 AND NOT MANUAL_TZ_DB )
+-    if ( USE_SYSTEM_TZ_DB AND NOT WIN32 AND NOT MANUAL_TZ_DB )
++    if ( USE_SYSTEM_TZ_DB AND NOT MANUAL_TZ_DB )
        target_compile_definitions( date-tz PRIVATE INSTALL=. PUBLIC USE_OS_TZDB=1 )
      else()
        target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
 diff --git a/include/date/tz.h b/include/date/tz.h
-index 03c0042..4921068 100644
+index 4921068..03c0042 100644
 --- a/include/date/tz.h
 +++ b/include/date/tz.h
-@@ -82,6 +82,12 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
+@@ -82,12 +82,6 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
  #  define USE_SHELL_API 1
  #endif
  
-+#if USE_OS_TZDB
-+#  ifdef _WIN32
-+#    error "USE_OS_TZDB can not be used on Windows"
-+#  endif
-+#endif
-+
+-#if USE_OS_TZDB
+-#  ifdef _WIN32
+-#    error "USE_OS_TZDB can not be used on Windows"
+-#  endif
+-#endif
+-
  #ifndef HAS_DEDUCTION_GUIDES
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index a220826..26babbd 100644
+index 26babbd..a220826 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
-@@ -154,7 +154,6 @@
+@@ -154,6 +154,7 @@
  #    include <sys/wait.h>
  #    include <sys/types.h>
  #  endif //!USE_SHELL_API
--#  include <dlfcn.h>
++#  include <dlfcn.h>
  #endif  // !_WIN32
  
  
-@@ -342,69 +341,54 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+@@ -341,54 +342,69 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
  
  #endif  // USE_OS_TZDB
  
-+#ifndef _WIN32
-+
+-#ifndef _WIN32
+-
  static
  std::string
  discover_tz_dir()
  {
--    // get path to library we're in, to determine our location relative to $PREFIX;
--    // with help from the MIT-licensed https://github.com/gpakosz/whereami
--    void* addr = __builtin_extract_return_addr(__builtin_return_address(0));
--    char* this_lib;
--    int i;
--    // <string> is included through <chrono>
--    static std::string tz_dir;
--    if (!tz_dir.empty()) {
--      return tz_dir;
--    }
--#ifdef _WIN32
--    wchar_t buffer[MAX_PATH];
--    HMODULE hm = NULL;
--    // non-zero return means success
--    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
--                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
--                          (LPCSTR) addr, &hm)) {
--      // returns length of string (not counting null byte), see
--      // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew#return-value
--      DWORD total_length = GetModuleFileNameW(hm, buffer, sizeof(buffer));
--      if (total_length) {
--        this_lib = (char*)malloc(total_length + 1);
--        memcpy(this_lib, buffer, total_length);
--#else
--    char buffer[PATH_MAX];
--    Dl_info info;
+-    struct stat sb;
+-    using namespace std;
+-#  ifndef __APPLE__
+-    CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
+-    CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
 -
--    if (dladdr(addr, &info)) {
--      char* resolved = realpath(info.dli_fname, buffer);
--      if (resolved) {
--        int total_length = (int)strlen(resolved);
--        this_lib = (char*)malloc(total_length + 1);
--        memcpy(this_lib, resolved, total_length);
--#endif
--
--        for (i = (int)total_length - 1; i >= 0; --i) {
--          if (this_lib[i] == folder_delimiter) {
--            // set to null byte so the string ends before the basename
--            this_lib[i] = '\0';
--            break;
--          }
--        }
--        std::string tmp{this_lib};
--        tmp += folder_delimiter;
--        tmp += "..";
--        tmp += folder_delimiter;
--        tmp += "share";
--        tmp += folder_delimiter;
--        tmp += "zoneinfo";
--        // std::string constructor for tz_dir deep-copies
--        free(this_lib);
--        tz_dir = tmp;
--        return tz_dir;
--      }
--    }
--
--    throw std::runtime_error("failed to resolve conda zoneinfo path");
-+    struct stat sb;
-+    using namespace std;
-+#  ifndef __APPLE__
-+    CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
-+    CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
+-    // Check special path which is valid for buildroot with uclibc builds
+-    if(stat(tz_dir_buildroot, &sb) == 0 && S_ISDIR(sb.st_mode))
+-        return tz_dir_buildroot;
+-    else if(stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
+-        return tz_dir_default;
+-    else
+-        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
+-#  else  // __APPLE__
+-#      if TARGET_OS_IPHONE
+-#          if TARGET_OS_SIMULATOR
+-    return "/usr/share/zoneinfo";
+-#          else
+-    return "/var/db/timezone/zoneinfo";
+-#          endif
+-#      else
+-    CONSTDATA auto timezone = "/etc/localtime";
+-    if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
+-        throw runtime_error("discover_tz_dir failed\n");
+-    string result;
+-    char rp[PATH_MAX+1] = {};
+-    if (readlink(timezone, rp, sizeof(rp)-1) > 0)
+-        result = string(rp);
+-    else
+-        throw system_error(errno, system_category(), "readlink() failed");
+-    auto i = result.find("zoneinfo");
+-    if (i == string::npos)
+-        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
+-    i = result.find('/', i);
+-    if (i == string::npos)
+-        throw runtime_error("discover_tz_dir failed to find '/'\n");
+-    return result.substr(0, i);
+-#      endif
+-#  endif  // __APPLE__
++    // get path to library we're in, to determine our location relative to $PREFIX;
++    // with help from the MIT-licensed https://github.com/gpakosz/whereami
++    void* addr = __builtin_extract_return_addr(__builtin_return_address(0));
++    char* this_lib;
++    int i;
++    // <string> is included through <chrono>
++    static std::string tz_dir;
++    if (!tz_dir.empty()) {
++      return tz_dir;
++    }
++#ifdef _WIN32
++    wchar_t buffer[MAX_PATH];
++    HMODULE hm = NULL;
++    // non-zero return means success
++    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
++                          GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
++                          (LPCSTR) addr, &hm)) {
++      // returns length of string (not counting null byte), see
++      // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew#return-value
++      DWORD total_length = GetModuleFileNameW(hm, buffer, sizeof(buffer));
++      if (total_length) {
++        this_lib = (char*)malloc(total_length + 1);
++        memcpy(this_lib, buffer, total_length);
++#else
++    char buffer[PATH_MAX];
++    Dl_info info;
 +
-+    // Check special path which is valid for buildroot with uclibc builds
-+    if(stat(tz_dir_buildroot, &sb) == 0 && S_ISDIR(sb.st_mode))
-+        return tz_dir_buildroot;
-+    else if(stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
-+        return tz_dir_default;
-+    else
-+        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
-+#  else  // __APPLE__
-+#      if TARGET_OS_IPHONE
-+#          if TARGET_OS_SIMULATOR
-+    return "/usr/share/zoneinfo";
-+#          else
-+    return "/var/db/timezone/zoneinfo";
-+#          endif
-+#      else
-+    CONSTDATA auto timezone = "/etc/localtime";
-+    if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
-+        throw runtime_error("discover_tz_dir failed\n");
-+    string result;
-+    char rp[PATH_MAX+1] = {};
-+    if (readlink(timezone, rp, sizeof(rp)-1) > 0)
-+        result = string(rp);
-+    else
-+        throw system_error(errno, system_category(), "readlink() failed");
-+    auto i = result.find("zoneinfo");
-+    if (i == string::npos)
-+        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
-+    i = result.find('/', i);
-+    if (i == string::npos)
-+        throw runtime_error("discover_tz_dir failed to find '/'\n");
-+    return result.substr(0, i);
-+#      endif
-+#  endif  // __APPLE__
++    if (dladdr(addr, &info)) {
++      char* resolved = realpath(info.dli_fname, buffer);
++      if (resolved) {
++        int total_length = (int)strlen(resolved);
++        this_lib = (char*)malloc(total_length + 1);
++        memcpy(this_lib, resolved, total_length);
++#endif
++
++        for (i = (int)total_length - 1; i >= 0; --i) {
++          if (this_lib[i] == folder_delimiter) {
++            // set to null byte so the string ends before the basename
++            this_lib[i] = '\0';
++            break;
++          }
++        }
++        std::string tmp{this_lib};
++        tmp += folder_delimiter;
++        tmp += "..";
++        tmp += folder_delimiter;
++        tmp += "share";
++        tmp += folder_delimiter;
++        tmp += "zoneinfo";
++        // std::string constructor for tz_dir deep-copies
++        free(this_lib);
++        tz_dir = tmp;
++        return tz_dir;
++      }
++    }
++
++    throw std::runtime_error("failed to resolve conda zoneinfo path");
  }
  
-+static
+-static
  const std::string&
  get_tz_dir()
  {
-@@ -412,6 +396,8 @@ get_tz_dir()
+@@ -396,8 +412,6 @@ get_tz_dir()
      return tz_dir;
  }
  
-+#endif
-+
+-#endif
+-
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -505,6 +491,7 @@ parse_month(std::istream& in)
+@@ -491,7 +505,6 @@ parse_month(std::istream& in)
      return static_cast<unsigned>(++m);
  }
  
-+#if !USE_OS_TZDB
+-#if !USE_OS_TZDB
  
  #ifdef _WIN32
  
-@@ -716,7 +703,6 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
+@@ -703,6 +716,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
  
  #endif  // _WIN32
  
--#if !USE_OS_TZDB
++#if !USE_OS_TZDB
  // Parsing helpers
  
  static
-@@ -1746,15 +1732,9 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
+@@ -1732,9 +1746,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
  {
--#ifdef _WIN32
--    little = 0,
--    big = 1,
--    native = little
--#else
++#ifdef _WIN32
++    little = 0,
++    big = 1,
++    native = little
++#else
      native = __BYTE_ORDER__,
      little = __ORDER_LITTLE_ENDIAN__,
      big    = __ORDER_BIG_ENDIAN__
--#endif
++#endif
  };
  
  static
-@@ -2061,8 +2041,8 @@ time_zone::init_impl()
+@@ -2041,8 +2061,8 @@ time_zone::init_impl()
  {
      using namespace std;
      using namespace std::chrono;
--    auto name = get_tz_dir() + (folder_delimiter + name_);
--    std::ifstream inf(name, std::ios::in | std::ios::binary);
-+    auto name = get_tz_dir() + ('/' + name_);
-+    std::ifstream inf(name);
+-    auto name = get_tz_dir() + ('/' + name_);
+-    std::ifstream inf(name);
++    auto name = get_tz_dir() + (folder_delimiter + name_);
++    std::ifstream inf(name, std::ios::in | std::ios::binary);
      if (!inf.is_open())
          throw std::runtime_error{"Unable to open " + name};
      inf.exceptions(std::ios::failbit | std::ios::badbit);
-@@ -3653,13 +3633,7 @@ locate_zone(std::string_view tz_name)
+@@ -3633,7 +3653,13 @@ locate_zone(std::string_view tz_name)
  locate_zone(const std::string& tz_name)
  #endif
  {
--    #if _WIN32 && USE_OS_TZDB
--        std::string local_tz_name(tz_name);
--        std::replace(local_tz_name.begin(), local_tz_name.end(), '/', '\\');
--        return get_tzdb().locate_zone(local_tz_name);
--    #else
--        return get_tzdb().locate_zone(tz_name);
--    #endif
-+    return get_tzdb().locate_zone(tz_name);
+-    return get_tzdb().locate_zone(tz_name);
++    #if _WIN32 && USE_OS_TZDB
++        std::string local_tz_name(tz_name);
++        std::replace(local_tz_name.begin(), local_tz_name.end(), '/', '\\');
++        return get_tzdb().locate_zone(local_tz_name);
++    #else
++        return get_tzdb().locate_zone(tz_name);
++    #endif
  }
  
  #if USE_OS_TZDB
