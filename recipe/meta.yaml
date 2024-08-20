@@ -11,7 +11,7 @@ source:
   url: https://github.com/HowardHinnant/date/archive/v{{ version }}.tar.gz
   sha256: {{ sha256 }}
   patches:
-    - use-conda-tzdb-on-all-platforms.patch
+    - patches/0001-Locate-zoneinfo-based-on-install-prefix.patch
 
 build:
   number: 7
@@ -40,6 +40,7 @@ test:
   files:
     - test
   commands:
+    - echo running tests
     - test -d ${PREFIX}/include/date  # [unix]
     - test -f ${PREFIX}/include/date/date.h  # [unix]
     - test -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
@@ -52,6 +53,7 @@ test:
     - cmake --build . --config Release
     - ./program  # [unix]
     - program.exe  # [win]
+    - echo done running tests
 
 about:
   home: http://github.com/HowardHinnant/date
