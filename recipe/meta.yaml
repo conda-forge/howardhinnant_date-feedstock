@@ -40,20 +40,18 @@ test:
   files:
     - test
   commands:
-    - echo running tests
     - test -d ${PREFIX}/include/date  # [unix]
     - test -f ${PREFIX}/include/date/date.h  # [unix]
     - test -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
     - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
-    - if exist %LIBRARY_PREFIX%\include\date\date.h (exit 0) else (exit 1)  # [win]
-    - if exist %LIBRARY_PREFIX%\lib\date-tz.dll (exit 0) else (exit 1)  # [win]
-    - if exist %LIBRARY_PREFIX%\lib\cmake\dateConfig.cmake (exit 0) else (exit 1)  # [win]
+    - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
+    - if not exist %LIBRARY_PREFIX%\lib\date-tz.dll exit 1  # [win]
+    - if not exist %LIBRARY_PREFIX%\lib\cmake\dateConfig.cmake exit 1  # [win]
     - cd test
     - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
     - cmake --build . --config Release
     - ./program  # [unix]
     - program.exe  # [win]
-    - echo done running tests
 
 about:
   home: http://github.com/HowardHinnant/date
