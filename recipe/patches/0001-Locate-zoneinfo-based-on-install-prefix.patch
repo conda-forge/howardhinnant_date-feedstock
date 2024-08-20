@@ -1,4 +1,4 @@
-From 84f640695229d71590af36b135dab41a811311a1 Mon Sep 17 00:00:00 2001
+From 0cb38e139843e457a1684363ddc54ad327670ad9 Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
 Date: Tue, 20 Aug 2024 14:09:50 +0000
 Subject: [PATCH] Locate zoneinfo based on install prefix
@@ -50,7 +50,7 @@ index 4921068..03c0042 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 26babbd..f8fc24e 100644
+index 26babbd..7515329 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
 @@ -128,6 +128,7 @@
@@ -134,7 +134,7 @@ index 26babbd..f8fc24e 100644
 +      return tz_dir;
 +    }
 +#ifdef _WIN32
-+    wchar_t buffer[MAX_PATH];
++    char buffer[MAX_PATH];
 +    HMODULE hm = NULL;
 +    // non-zero return means success
 +    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
@@ -142,7 +142,7 @@ index 26babbd..f8fc24e 100644
 +                          (LPCSTR) addr, &hm)) {
 +      // returns length of string (not counting null byte), see
 +      // https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-getmodulefilenamew#return-value
-+      DWORD total_length = GetModuleFileNameW(hm, buffer, sizeof(buffer));
++      DWORD total_length = GetModuleFileNameA(hm, buffer, sizeof(buffer));
 +      if (total_length) {
 +        this_lib = (char*)malloc(total_length + 1);
 +        memcpy(this_lib, buffer, total_length);
