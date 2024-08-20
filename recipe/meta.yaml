@@ -45,8 +45,8 @@ test:
     - test -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
     - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
     - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
-    - if not exist %LIBRARY_PREFIX%\lib\date-tz.dll exit 1  # [win]
-    - if not exist %LIBRARY_PREFIX%\lib\cmake\dateConfig.cmake exit 1  # [win]
+    - if not exist %LIBRARY_PREFIX%\bin\date-tz.dll exit 1  # [win]
+    - if not exist %LIBRARY_PREFIX%\cmake\dateConfig.cmake exit 1  # [win]
     - cd test
     - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
     - cmake --build . --config Release
