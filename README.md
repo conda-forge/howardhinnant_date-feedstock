@@ -19,14 +19,7 @@ Current build status
 ====================
 
 
-<table><tr>
-    <td>Travis</td>
-    <td>
-      <a href="https://app.travis-ci.com/conda-forge/howardhinnant_date-feedstock">
-        <img alt="linux" src="https://img.shields.io/travis/com/conda-forge/howardhinnant_date-feedstock/main.svg?label=Linux">
-      </a>
-    </td>
-  </tr>
+<table>
     
   <tr>
     <td>Azure</td>
@@ -211,6 +204,7 @@ Feedstock Maintainers
 =====================
 
 * [@JohanMabille](https://github.com/JohanMabille/)
+* [@apmorton](https://github.com/apmorton/)
 * [@gabm](https://github.com/gabm/)
 * [@jjerphan](https://github.com/jjerphan/)
 * [@pidefrem](https://github.com/pidefrem/)
