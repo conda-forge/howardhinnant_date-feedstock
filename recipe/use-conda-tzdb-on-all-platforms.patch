@@ -1,4 +1,4 @@
-From c8e3538229d7c33ba2e6c9c5ec71ee4fdf2e2e52 Mon Sep 17 00:00:00 2001
+From 2a3cca0c9bb2bbfd0daa7066017f4c17014549cd Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
 Date: Mon, 19 Aug 2024 19:19:26 +0000
 Subject: [PATCH] Use conda tzdb on all platforms
@@ -6,8 +6,8 @@ Subject: [PATCH] Use conda tzdb on all platforms
 ---
  CMakeLists.txt    |   4 +-
  include/date/tz.h |   6 ---
- src/tz.cpp        | 127 +++++++++++++++++++++++++++++-----------------
- 3 files changed, 82 insertions(+), 55 deletions(-)
+ src/tz.cpp        | 128 +++++++++++++++++++++++++++++-----------------
+ 3 files changed, 83 insertions(+), 55 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 012512a..1a0edab 100644
@@ -49,10 +49,18 @@ index 4921068..03c0042 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 26babbd..d0db844 100644
+index 26babbd..00aa3a9 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
-@@ -154,6 +154,7 @@
+@@ -128,6 +128,7 @@
+ #  endif
+ 
+ #  include <io.h> // _unlink etc.
++#  include <intrin.h>
+ 
+ #  if defined(__clang__)
+     struct IUnknown;    // fix for issue with static_cast<> in objbase.h
+@@ -154,6 +155,7 @@
  #    include <sys/wait.h>
  #    include <sys/types.h>
  #  endif //!USE_SHELL_API
@@ -60,7 +68,7 @@ index 26babbd..d0db844 100644
  #endif  // !_WIN32
  
  
-@@ -341,51 +342,73 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+@@ -341,51 +343,73 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
  
  #endif  // USE_OS_TZDB
  
@@ -175,7 +183,7 @@ index 26babbd..d0db844 100644
  }
  
  static
-@@ -396,8 +419,6 @@ get_tz_dir()
+@@ -396,8 +420,6 @@ get_tz_dir()
      return tz_dir;
  }
  
@@ -184,7 +192,7 @@ index 26babbd..d0db844 100644
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -491,7 +512,6 @@ parse_month(std::istream& in)
+@@ -491,7 +513,6 @@ parse_month(std::istream& in)
      return static_cast<unsigned>(++m);
  }
  
@@ -192,7 +200,7 @@ index 26babbd..d0db844 100644
  
  #ifdef _WIN32
  
-@@ -703,6 +723,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
+@@ -703,6 +724,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
  
  #endif  // _WIN32
  
@@ -200,7 +208,7 @@ index 26babbd..d0db844 100644
  // Parsing helpers
  
  static
-@@ -1732,9 +1753,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
+@@ -1732,9 +1754,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
  {
@@ -216,7 +224,7 @@ index 26babbd..d0db844 100644
  };
  
  static
-@@ -2041,8 +2068,8 @@ time_zone::init_impl()
+@@ -2041,8 +2069,8 @@ time_zone::init_impl()
  {
      using namespace std;
      using namespace std::chrono;
@@ -227,7 +235,7 @@ index 26babbd..d0db844 100644
      if (!inf.is_open())
          throw std::runtime_error{"Unable to open " + name};
      inf.exceptions(std::ios::failbit | std::ios::badbit);
-@@ -3633,7 +3660,13 @@ locate_zone(std::string_view tz_name)
+@@ -3633,7 +3661,13 @@ locate_zone(std::string_view tz_name)
  locate_zone(const std::string& tz_name)
  #endif
  {
