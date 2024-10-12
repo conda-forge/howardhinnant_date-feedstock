@@ -1,6 +1,6 @@
 {% set name = "howardhinnant_date" %}
-{% set version = "3.0.1" %}
-{% set sha256 = "7a390f200f0ccd207e8cff6757e04817c1a0aec3e327b006b7eb451c57ee3538" %}
+{% set version = "3.0.2" %}
+{% set sha256 = "0449667ea85c5b411c28d08a53f1e420c73416caa5b693c249dac9763eb97b7c" %}
 
 package:
   name: {{ name|lower }}
@@ -14,7 +14,7 @@ source:
     - patches/0001-Locate-zoneinfo-based-on-install-prefix.patch
 
 build:
-  number: 7
+  number: 0
   skip: true  # [win and vc<14]
   run_exports:
     - {{ pin_subpackage('howardhinnant_date', max_pin='x.x') }}
