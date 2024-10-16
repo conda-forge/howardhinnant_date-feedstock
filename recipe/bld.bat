@@ -1,8 +1,11 @@
-cmake -G "NMake Makefiles" -D CMAKE_INSTALL_PREFIX=%LIBRARY_PREFIX% %SRC_DIR% -D BUILD_SHARED_LIBS=ON -D BUILD_TZ_LIB=ON -D USE_SYSTEM_TZ_DB=ON -D CMAKE_BUILD_TYPE=Release
+cmake -S . -B build %CMAKE_ARGS% -G "NMake Makefiles" ^
+  -DBUILD_SHARED_LIBS=ON ^
+  -DUSE_SYSTEM_TZ_DB=ON ^
+  -DBUILD_TZ_LIB=ON ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DCMAKE_CXX_STANDARD=17 ^
+
 if errorlevel 1 exit 1
 
-nmake
-if errorlevel 1 exit 1
-
-nmake install
+cmake --build build --config Release --target install
 if errorlevel 1 exit 1
