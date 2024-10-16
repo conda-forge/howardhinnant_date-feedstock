@@ -10,6 +10,8 @@ source:
   fn: {{ name }}-{{ version }}.tar.gz
   url: https://github.com/HowardHinnant/date/archive/v{{ version }}.tar.gz
   sha256: {{ sha256 }}
+  patches:
+    - patches/0001-Locate-zoneinfo-based-on-install-prefix.patch
 
 build:
   number: 0
@@ -48,6 +50,8 @@ test:
     - cd test
     - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
     - cmake --build . --config Release
+    - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
+    - mklink %PREFIX%\share\zoneinfo\CondaTest %PREFIX%\share\zoneinfo\UTC  # [win]
     - ./program  # [unix]
     - program.exe  # [win]
 

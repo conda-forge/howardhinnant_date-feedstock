@@ -3,8 +3,8 @@
 
 int main() {
     auto const& tzdb = date::get_tzdb();
-    if (tzdb.zones.size() == 0) {
-        std::cout << "no zones found, something is wrong with the patch\n";
+    if (tzdb.locate_zone("CondaTest") == nullptr) {
+        std::cout << "CondaTest zone not found, something is wrong with the patch\n";
         return 1;
     }
     std::cout << "num zones: " << tzdb.zones.size() << "\n";
