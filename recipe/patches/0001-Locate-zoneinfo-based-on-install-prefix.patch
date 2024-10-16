@@ -1,14 +1,15 @@
-From a5dfe7eeb885bbfe68992efb8c3d821954b6bb04 Mon Sep 17 00:00:00 2001
+From dd1dc5ac481bda1140b875d929c046a2e32b498b Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
 Date: Wed, 16 Oct 2024 14:35:42 +0000
 Subject: [PATCH] Locate zoneinfo based on install prefix
 
 Patch based on https://github.com/conda-forge/ctng-compilers-feedstock/blob/1484ff49f71cac78580cbf6c4aab350b2415cf49/recipe/patches/0003-patch-zoneinfo_dir_override-to-point-to-our-tzdata.patch
 ---
- CMakeLists.txt    |   4 +-
- include/date/tz.h |   6 --
- src/tz.cpp        | 149 +++++++++++++++++++++++++++-------------------
- 3 files changed, 91 insertions(+), 68 deletions(-)
+ CMakeLists.txt      |   4 +-
+ include/date/date.h |   4 --
+ include/date/tz.h   |   6 --
+ src/tz.cpp          | 149 ++++++++++++++++++++++++++------------------
+ 4 files changed, 91 insertions(+), 72 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a430a23..4c7701e 100644
@@ -32,6 +33,22 @@ index a430a23..4c7701e 100644
        target_compile_definitions( date-tz PRIVATE INSTALL=. PUBLIC USE_OS_TZDB=1 )
      else()
        target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
+diff --git a/include/date/date.h b/include/date/date.h
+index beb627e..c5d9de5 100644
+--- a/include/date/date.h
++++ b/include/date/date.h
+@@ -33,11 +33,7 @@
+ // We did not mean to shout.
+ 
+ #ifndef HAS_STRING_VIEW
+-#  if __cplusplus >= 201703 || (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L)
+ #    define HAS_STRING_VIEW 1
+-#  else
+-#    define HAS_STRING_VIEW 0
+-#  endif
+ #endif  // HAS_STRING_VIEW
+ 
+ #include <cassert>
 diff --git a/include/date/tz.h b/include/date/tz.h
 index f056849..52f3f13 100644
 --- a/include/date/tz.h

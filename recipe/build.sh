@@ -6,6 +6,5 @@ cmake -S . -B build ${CMAKE_ARGS} \
   -DBUILD_TZ_LIB=ON \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_STANDARD=17 \
-  -DHAS_STRING_VIEW=1 \
 
 cmake --build build --config Release --target install
