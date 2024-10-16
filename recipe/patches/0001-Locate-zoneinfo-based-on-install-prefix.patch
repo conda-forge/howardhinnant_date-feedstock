@@ -1,4 +1,4 @@
-From 8d4e79ab1632050be907c6ec8b499471a4c04f53 Mon Sep 17 00:00:00 2001
+From c9537e0428c34b757ad9cefccf8d6b5f9d790f3c Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
 Date: Wed, 16 Oct 2024 14:35:42 +0000
 Subject: [PATCH] Locate zoneinfo based on install prefix
@@ -7,8 +7,8 @@ Patch based on https://github.com/conda-forge/ctng-compilers-feedstock/blob/1484
 ---
  CMakeLists.txt    |   4 +-
  include/date/tz.h |   6 --
- src/tz.cpp        | 143 +++++++++++++++++++++++++++-------------------
- 3 files changed, 86 insertions(+), 67 deletions(-)
+ src/tz.cpp        | 141 +++++++++++++++++++++++++++-------------------
+ 3 files changed, 85 insertions(+), 66 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a430a23..4c7701e 100644
@@ -50,7 +50,7 @@ index f056849..52f3f13 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 15c9f5d..519bebb 100644
+index 15c9f5d..88e48da 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
 @@ -152,6 +152,7 @@ struct index_entry_t {
@@ -208,22 +208,6 @@ index 15c9f5d..519bebb 100644
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -678,7 +691,6 @@ parse_month(std::istream& in)
- }
- #endif // !defined(ANDROID) && !defined(__ANDROID__)
- 
--#if !USE_OS_TZDB
- 
- #ifdef _WIN32
- 
-@@ -882,6 +894,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
- 
- #endif  // _WIN32
- 
-+#if !USE_OS_TZDB
- // Parsing helpers
- 
- static
 @@ -1917,9 +1930,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
