@@ -1,4 +1,4 @@
-From c9537e0428c34b757ad9cefccf8d6b5f9d790f3c Mon Sep 17 00:00:00 2001
+From a5dfe7eeb885bbfe68992efb8c3d821954b6bb04 Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
 Date: Wed, 16 Oct 2024 14:35:42 +0000
 Subject: [PATCH] Locate zoneinfo based on install prefix
@@ -7,8 +7,8 @@ Patch based on https://github.com/conda-forge/ctng-compilers-feedstock/blob/1484
 ---
  CMakeLists.txt    |   4 +-
  include/date/tz.h |   6 --
- src/tz.cpp        | 141 +++++++++++++++++++++++++++-------------------
- 3 files changed, 85 insertions(+), 66 deletions(-)
+ src/tz.cpp        | 149 +++++++++++++++++++++++++++-------------------
+ 3 files changed, 91 insertions(+), 68 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a430a23..4c7701e 100644
@@ -50,7 +50,7 @@ index f056849..52f3f13 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 15c9f5d..88e48da 100644
+index 15c9f5d..ff9d9f8 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
 @@ -152,6 +152,7 @@ struct index_entry_t {
@@ -208,7 +208,29 @@ index 15c9f5d..88e48da 100644
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -1917,9 +1930,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
+@@ -678,8 +691,6 @@ parse_month(std::istream& in)
+ }
+ #endif // !defined(ANDROID) && !defined(__ANDROID__)
+ 
+-#if !USE_OS_TZDB
+-
+ #ifdef _WIN32
+ 
+ static
+@@ -733,6 +744,12 @@ native_to_standard_timezone_name(const std::string& native_tz_name,
+     return false;
+ }
+ 
++#endif
++
++#if !USE_OS_TZDB
++
++#ifdef _WIN32
++
+ // Parse this XML file:
+ // https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml
+ // The parsing method is designed to be simple and quick. It is not overly
+@@ -1917,9 +1934,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
  {
@@ -224,7 +246,7 @@ index 15c9f5d..88e48da 100644
  };
  
  static
-@@ -2229,8 +2248,8 @@ time_zone::init_impl()
+@@ -2229,8 +2252,8 @@ time_zone::init_impl()
  #endif // defined(ANDROID) || defined(__ANDROID__)
      using namespace std;
      using namespace std::chrono;
@@ -235,7 +257,7 @@ index 15c9f5d..88e48da 100644
      if (!inf.is_open())
          throw std::runtime_error{"Unable to open " + name};
      inf.exceptions(std::ios::failbit | std::ios::badbit);
-@@ -4022,7 +4041,13 @@ locate_zone(std::string_view tz_name)
+@@ -4022,7 +4045,13 @@ locate_zone(std::string_view tz_name)
  locate_zone(const std::string& tz_name)
  #endif
  {
