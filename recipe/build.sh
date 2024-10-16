@@ -1,4 +1,4 @@
-#!/bin/bash
+set -euxo pipefail
 
 if [[ "$CONDA_BUILD_CROSS_COMPILATION" == "1" ]]; then
   # Get an updated config.sub and config.guess:
