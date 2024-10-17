@@ -1,20 +1,20 @@
-From 0cb38e139843e457a1684363ddc54ad327670ad9 Mon Sep 17 00:00:00 2001
+From d2500882a956db4670764ae09ddc96ef2e55fad1 Mon Sep 17 00:00:00 2001
 From: Austin Morton <austin.morton@aquatic.com>
-Date: Tue, 20 Aug 2024 14:09:50 +0000
+Date: Thu, 17 Oct 2024 14:50:36 +0000
 Subject: [PATCH] Locate zoneinfo based on install prefix
 
 Patch based on https://github.com/conda-forge/ctng-compilers-feedstock/blob/1484ff49f71cac78580cbf6c4aab350b2415cf49/recipe/patches/0003-patch-zoneinfo_dir_override-to-point-to-our-tzdata.patch
 ---
  CMakeLists.txt    |   4 +-
- include/date/tz.h |   6 ---
- src/tz.cpp        | 131 +++++++++++++++++++++++++++++-----------------
- 3 files changed, 86 insertions(+), 55 deletions(-)
+ include/date/tz.h |   6 --
+ src/tz.cpp        | 149 +++++++++++++++++++++++++++-------------------
+ 3 files changed, 91 insertions(+), 68 deletions(-)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 012512a..1a0edab 100644
+index a430a23..4c7701e 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -116,7 +116,7 @@ if( BUILD_TZ_LIB )
+@@ -135,7 +135,7 @@ if( BUILD_TZ_LIB )
            src/ios.mm )
      endif()
      add_library( date::date-tz ALIAS date-tz )
@@ -22,8 +22,8 @@ index 012512a..1a0edab 100644
 +    target_link_libraries( date-tz PUBLIC date ${CMAKE_DL_LIBS} )
      target_include_directories( date-tz PUBLIC
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-         $<INSTALL_INTERFACE:include> )
-@@ -127,7 +127,7 @@ if( BUILD_TZ_LIB )
+         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}> )
+@@ -146,7 +146,7 @@ if( BUILD_TZ_LIB )
        target_compile_definitions( date-tz PRIVATE AUTO_DOWNLOAD=1 HAS_REMOTE_API=1 )
      endif()
  
@@ -33,7 +33,7 @@ index 012512a..1a0edab 100644
      else()
        target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
 diff --git a/include/date/tz.h b/include/date/tz.h
-index 4921068..03c0042 100644
+index f056849..52f3f13 100644
 --- a/include/date/tz.h
 +++ b/include/date/tz.h
 @@ -82,12 +82,6 @@ static_assert(HAS_REMOTE_API == 0 ? AUTO_DOWNLOAD == 0 : true,
@@ -50,10 +50,10 @@ index 4921068..03c0042 100644
  #  if __cplusplus >= 201703
  #    define HAS_DEDUCTION_GUIDES 1
 diff --git a/src/tz.cpp b/src/tz.cpp
-index 26babbd..7515329 100644
+index 15c9f5d..ff9d9f8 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
-@@ -128,6 +128,7 @@
+@@ -152,6 +152,7 @@ struct index_entry_t {
  #  endif
  
  #  include <io.h> // _unlink etc.
@@ -61,7 +61,7 @@ index 26babbd..7515329 100644
  
  #  if defined(__clang__)
      struct IUnknown;    // fix for issue with static_cast<> in objbase.h
-@@ -154,6 +155,7 @@
+@@ -178,6 +179,7 @@ struct index_entry_t {
  #    include <sys/wait.h>
  #    include <sys/types.h>
  #  endif //!USE_SHELL_API
@@ -69,7 +69,7 @@ index 26babbd..7515329 100644
  #endif  // !_WIN32
  
  
-@@ -341,51 +343,76 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+@@ -478,63 +480,76 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
  
  #endif  // USE_OS_TZDB
  
@@ -81,7 +81,18 @@ index 26babbd..7515329 100644
  {
 -    struct stat sb;
 -    using namespace std;
--#  ifndef __APPLE__
+-#  if defined(ANDROID) || defined(__ANDROID__)
+-    CONSTDATA auto tz_dir_default = "/apex/com.android.tzdata/etc/tz";
+-    CONSTDATA auto tz_dir_fallback = "/system/usr/share/zoneinfo";
+-
+-    // Check updatable path first
+-    if(stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
+-        return tz_dir_default;
+-    else if(stat(tz_dir_fallback, &sb) == 0 && S_ISDIR(sb.st_mode))
+-        return tz_dir_fallback;
+-    else
+-        throw runtime_error("discover_tz_dir failed to find zoneinfo\n");
+-#  elif !defined(__APPLE__)
 -    CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
 -    CONSTDATA auto tz_dir_buildroot = "/usr/share/zoneinfo/uclibc";
 -
@@ -104,9 +115,10 @@ index 26babbd..7515329 100644
 -    if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
 -        throw runtime_error("discover_tz_dir failed\n");
 -    string result;
--    char rp[PATH_MAX+1] = {};
--    if (readlink(timezone, rp, sizeof(rp)-1) > 0)
--        result = string(rp);
+-    unique_ptr<char[]> rp(new char[sb.st_size]);
+-    const auto rp_length = readlink(timezone, rp.get(), sb.st_size);
+-    if (rp_length > 0)
+-        result = string(rp.get(), rp_length); // readlink doesn't null-terminate
 -    else
 -        throw system_error(errno, system_category(), "readlink() failed");
 -    auto i = result.find("zoneinfo");
@@ -187,7 +199,7 @@ index 26babbd..7515329 100644
  }
  
  static
-@@ -396,8 +423,6 @@ get_tz_dir()
+@@ -545,8 +560,6 @@ get_tz_dir()
      return tz_dir;
  }
  
@@ -196,23 +208,29 @@ index 26babbd..7515329 100644
  // +-------------------+
  // | End Configuration |
  // +-------------------+
-@@ -491,7 +516,6 @@ parse_month(std::istream& in)
-     return static_cast<unsigned>(++m);
+@@ -678,8 +691,6 @@ parse_month(std::istream& in)
  }
+ #endif // !defined(ANDROID) && !defined(__ANDROID__)
  
 -#if !USE_OS_TZDB
- 
+-
  #ifdef _WIN32
  
-@@ -703,6 +727,7 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
- 
- #endif  // _WIN32
- 
-+#if !USE_OS_TZDB
- // Parsing helpers
- 
  static
-@@ -1732,9 +1757,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
+@@ -733,6 +744,12 @@ native_to_standard_timezone_name(const std::string& native_tz_name,
+     return false;
+ }
+ 
++#endif
++
++#if !USE_OS_TZDB
++
++#ifdef _WIN32
++
+ // Parse this XML file:
+ // https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml
+ // The parsing method is designed to be simple and quick. It is not overly
+@@ -1917,9 +1934,15 @@ time_zone::time_zone(const std::string& s, detail::undocumented)
  
  enum class endian
  {
@@ -228,8 +246,8 @@ index 26babbd..7515329 100644
  };
  
  static
-@@ -2041,8 +2072,8 @@ time_zone::init_impl()
- {
+@@ -2229,8 +2252,8 @@ time_zone::init_impl()
+ #endif // defined(ANDROID) || defined(__ANDROID__)
      using namespace std;
      using namespace std::chrono;
 -    auto name = get_tz_dir() + ('/' + name_);
@@ -239,7 +257,7 @@ index 26babbd..7515329 100644
      if (!inf.is_open())
          throw std::runtime_error{"Unable to open " + name};
      inf.exceptions(std::ios::failbit | std::ios::badbit);
-@@ -3633,7 +3664,13 @@ locate_zone(std::string_view tz_name)
+@@ -4022,7 +4045,13 @@ locate_zone(std::string_view tz_name)
  locate_zone(const std::string& tz_name)
  #endif
  {
@@ -255,5 +273,5 @@ index 26babbd..7515329 100644
  
  #if USE_OS_TZDB
 -- 
-2.37.1.65.g4e2a4d1dd4.dirty
+2.43.2
 
