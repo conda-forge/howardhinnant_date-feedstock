@@ -1,6 +1,6 @@
 {% set name = "howardhinnant_date" %}
-{% set version = "3.0.2" %}
-{% set sha256 = "0449667ea85c5b411c28d08a53f1e420c73416caa5b693c249dac9763eb97b7c" %}
+{% set version = "3.0.3" %}
+{% set sha256 = "30de45a34a2605cca33a993a9ea54e8f140f23b1caf1acf3c2fd436c42c7d942" %}
 
 package:
   name: {{ name|lower }}
