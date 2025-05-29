@@ -87,7 +87,7 @@ Current release info
 
 | Name | Downloads | Version | Platforms |
 | --- | --- | --- | --- |
-| [![Conda Recipe](https://img.shields.io/badge/recipe-howardhinnant_date-green.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) |
+| [![Conda Recipe](https://img.shields.io/badge/recipe-howardhinnant__date-green.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Version](https://img.shields.io/conda/vn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) | [![Conda Platforms](https://img.shields.io/conda/pn/conda-forge/howardhinnant_date.svg)](https://anaconda.org/conda-forge/howardhinnant_date) |
 
 Installing howardhinnant_date
 =============================
