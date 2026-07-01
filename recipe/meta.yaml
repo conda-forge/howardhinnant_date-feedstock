@@ -54,18 +54,17 @@ outputs:
         - cmake
         - {{ compiler('cxx') }}
         - ninja
+        - python
       files:
         - test
       commands:
+        # headers and cmake config
         - test -d ${PREFIX}/include/date  # [unix]
         - test -f ${PREFIX}/include/date/date.h  # [unix]
-        - test -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
-        - test ! -f ${PREFIX}/lib/libdate-tz.a  # [unix]
         - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
         - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
-        - if not exist %LIBRARY_PREFIX%\bin\date-tz.dll exit 1  # [win]
         - if not exist %LIBRARY_PREFIX%\cmake\dateConfig.cmake exit 1  # [win]
-        - if exist %LIBRARY_LIB%\date-tz_static.lib exit 1  # [win]
+        - python test/check_package_libs.py shared
         - cd test
         - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
         - cmake --build . --config Release
@@ -89,38 +88,20 @@ outputs:
         - pkg-config
         - gnuconfig
       host:
-        - {{ pin_subpackage('howardhinnant_date', exact=True) }}
         - dirent  # [win]
       run:
         - tzdata
-      run_constrained:
-        - {{ pin_subpackage('howardhinnant_date', exact=True) }}
     test:
       requires:
         - cmake
         - {{ compiler('cxx') }}
         - ninja
+        - python
       files:
         - test
       commands:
-        - test -f ${PREFIX}/lib/libdate-tz.a  # [unix]
-        - test ! -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
-        - if not exist %LIBRARY_LIB%\date-tz_static.lib exit 1  # [win]
-        - if exist %LIBRARY_LIB%\date-tz.lib exit 1  # [win]
-        - if exist %LIBRARY_BIN%\date-tz.dll exit 1  # [win]
-        - export HOWARDHINNANT_DATE_SH_PKG="$(ls "$(dirname "$(dirname "${PREFIX}")")/linux-64"/howardhinnant_date-{{ version }}-*.conda | grep -v static | head -1)"  # [unix]
-        - test -n "${HOWARDHINNANT_DATE_SH_PKG}"  # [unix]
-        - conda install --no-deps -y -p "${PREFIX}" "${HOWARDHINNANT_DATE_SH_PKG}"  # [unix]
-        - for /f "delims=" %f in ('dir /b "%SRC_DIR%\\..\\..\\linux-64\\howardhinnant_date-{{ version }}-*.conda" ^| findstr /v static') do set HOWARDHINNANT_DATE_SH_PKG=%SRC_DIR%\\..\\..\\linux-64\\%f  # [win]
-        - if not defined HOWARDHINNANT_DATE_SH_PKG exit 1  # [win]
-        - conda install --no-deps -y -p "%PREFIX%" "%HOWARDHINNANT_DATE_SH_PKG%"  # [win]
-        - cd test
-        - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_TZ=ON
-        - cmake --build . --config Release
-        - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
-        - mklink %PREFIX%\share\zoneinfo\CondaTest %PREFIX%\share\zoneinfo\UTC  # [win]
-        - ./program  # [unix]
-        - program.exe  # [win]
+        - bash test/run_static_tests.sh  # [unix]
+        - test\run_static_tests.bat  # [win]
 
 about:
   home: http://github.com/HowardHinnant/date
