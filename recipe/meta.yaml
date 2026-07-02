@@ -25,8 +25,6 @@ build:
 
 outputs:
   - name: howardhinnant_date
-    script: install.sh  # [unix]
-    script: install.bat  # [win]
     build:
       run_exports:
         - {{ pin_subpackage('howardhinnant_date', max_pin='x.x') }}
@@ -80,7 +78,6 @@ outputs:
         - program.exe  # [win]
 
   - name: howardhinnant_date-static
-    script: install.sh  # [unix]
     build:
       skip: true  # [win]
       run_exports:
