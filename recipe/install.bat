@@ -8,7 +8,7 @@ IF not "x%PKG_NAME:static=%" == "x%PKG_NAME%" (
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_RELEASE_POSTFIX="_static" ^
       -DCMAKE_CXX_STANDARD=17 ^
-      -DCMAKE_CXX_STANDARD_REQUIRED=TRUE ^
+      -DCMAKE_CXX_STANDARD_REQUIRED=TRUE
     if errorlevel 1 exit 1
 
     "%BUILD_PREFIX%\bin\cmake" --build build-static --config Release
@@ -23,7 +23,7 @@ IF not "x%PKG_NAME:static=%" == "x%PKG_NAME%" (
       -DBUILD_TZ_LIB=ON ^
       -DCMAKE_BUILD_TYPE=Release ^
       -DCMAKE_CXX_STANDARD=17 ^
-      -DCMAKE_CXX_STANDARD_REQUIRED=TRUE ^
+      -DCMAKE_CXX_STANDARD_REQUIRED=TRUE
     if errorlevel 1 exit 1
 
     "%BUILD_PREFIX%\bin\cmake" --build build-dyn --config Release
