@@ -1,0 +1,197 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Julien Jerphanion <git@jjerphan.xyz>
+Date: Thu, 2 Jul 2026 10:36:23 +0200
+Subject: [PATCH] Resolve zoneinfo for statically linked date-tz
+
+When date-tz is linked statically, its tz code is embedded in the final
+executable. The existing conda patch locates zoneinfo relative to the
+loaded module via dladdr, which works for libdate-tz.so in $PREFIX/lib
+but not when the binary is run from a build directory or another path.
+
+Define DATE_TZ_STATIC_LIB when BUILD_SHARED_LIBS=OFF and extend
+discover_tz_dir() for static archives only:
+
+  1. CONDA_PREFIX or PREFIX/share/zoneinfo (Library/share/zoneinfo on
+     Windows), matching the conda tzdata layout.
+  2. The existing dladdr-based path, if that directory exists.
+  3. The system timezone database as a last resort:
+     - Linux: /usr/share/zoneinfo
+     - macOS: directory derived from the /etc/localtime symlink
+     - Windows: no IANA zoneinfo tree; rely on steps 1 and 2
+
+Shared-library builds are unchanged. This keeps conda environments working
+for static consumers while allowing fallback outside a conda prefix on
+Linux and macOS when tzdata is not available.
+---
+ CMakeLists.txt |  3 ++
+ src/tz.cpp      | 91 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 94 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4c7701e..b8a2f4d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -158,6 +158,9 @@ if( BUILD_TZ_LIB )
+ 
+     if ( USE_SYSTEM_TZ_DB AND NOT MANUAL_TZ_DB )
+       target_compile_definitions( date-tz PRIVATE INSTALL=. PUBLIC USE_OS_TZDB=1 )
++      if ( NOT BUILD_SHARED_LIBS )
++        target_compile_definitions( date-tz PRIVATE DATE_TZ_STATIC_LIB=1 )
++      endif()
+     else()
+       target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
+     endif()
+diff --git a/src/tz.cpp b/src/tz.cpp
+index ff9d9f8..b7e3a1c 100644
+--- a/src/tz.cpp
++++ b/src/tz.cpp
+@@ -153,6 +153,7 @@ struct index_entry_t {
+ 
+ #  include <io.h> // _unlink etc.
+ #  include <intrin.h>
++#  include <cstdlib>
+ 
+ #  if defined(__clang__)
+     struct IUnknown;    // fix for issue with static_cast<> in objbase.h
+@@ -180,6 +181,8 @@ struct index_entry_t {
+ #    include <sys/types.h>
+ #  endif //!USE_SHELL_API
+ #  include <dlfcn.h>
++#  include <sys/stat.h>
++#  include <cstdlib>
+ #endif  // !_WIN32
+ 
+ 
+@@ -480,6 +483,91 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+ 
+ #endif  // USE_OS_TZDB
+ 
++
++static
++bool
++conda_tzinfo_dir_exists(const std::string& path)
++{
++#ifdef _WIN32
++    const DWORD attrs = GetFileAttributesA(path.c_str());
++    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY);
++#else
++    struct stat sb;
++    return stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode);
++#endif
++}
++
++#if defined(DATE_TZ_STATIC_LIB)
++static
++std::string
++discover_tz_dir_from_env()
++{
++    static const char* const prefix_vars[] = {"CONDA_PREFIX", "PREFIX", nullptr};
++    for (const char* const* var = prefix_vars; *var != nullptr; ++var)
++    {
++        if (const char* prefix = std::getenv(*var))
++        {
++#ifdef _WIN32
++            const std::string library_candidate =
++                std::string(prefix) + "\\Library\\share\\zoneinfo";
++            if (conda_tzinfo_dir_exists(library_candidate))
++                return library_candidate;
++#endif
++            const std::string candidate = std::string(prefix) + folder_delimiter + "share"
++                                        + folder_delimiter + "zoneinfo";
++            if (conda_tzinfo_dir_exists(candidate))
++                return candidate;
++        }
++    }
++    return {};
++}
++
++static
++std::string
++discover_tz_dir_from_system()
++{
++#ifdef _WIN32
++    return {};
++#else
++    struct stat sb;
++    using namespace std;
++# ifdef __APPLE__
++    CONSTDATA auto timezone = "/etc/localtime";
++    if (!(lstat(timezone, &sb) == 0 && S_ISLNK(sb.st_mode) && sb.st_size > 0))
++        return {};
++    string result;
++    unique_ptr<char[]> rp(new char[sb.st_size]);
++    const auto rp_length = readlink(timezone, rp.get(), sb.st_size);
++    if (rp_length <= 0)
++        return {};
++    result = string(rp.get(), static_cast<size_t>(rp_length));
++    auto i = result.find("zoneinfo");
++    if (i == string::npos)
++        return {};
++    i = result.find('/', i);
++    if (i == string::npos)
++        return {};
++    return result.substr(0, i);
++# else
++    CONSTDATA auto tz_dir_default = "/usr/share/zoneinfo";
++    if (stat(tz_dir_default, &sb) == 0 && S_ISDIR(sb.st_mode))
++        return tz_dir_default;
++    return {};
++# endif
++#endif
++}
++
++static
++std::string
++discover_tz_dir_static_fallback()
++{
++    std::string tz_dir = discover_tz_dir_from_env();
++    if (!tz_dir.empty())
++        return tz_dir;
++    return discover_tz_dir_from_system();
++}
++#endif
++
+ static
+ std::string
+ discover_tz_dir()
+@@ -499,6 +587,12 @@ discover_tz_dir()
+     if (!tz_dir.empty()) {
+       return tz_dir;
+     }
++#if defined(DATE_TZ_STATIC_LIB)
++    tz_dir = discover_tz_dir_from_env();
++    if (!tz_dir.empty()) {
++      return tz_dir;
++    }
++#endif
+ #ifdef _WIN32
+     char buffer[MAX_PATH];
+     HMODULE hm = NULL;
+@@ -544,11 +638,25 @@ discover_tz_dir()
+         tmp += "zoneinfo";
+         // std::string constructor for tz_dir deep-copies
+         free(this_lib);
++        if (!conda_tzinfo_dir_exists(tmp)) {
++#if defined(DATE_TZ_STATIC_LIB)
++            tz_dir = discover_tz_dir_static_fallback();
++            if (!tz_dir.empty())
++                return tz_dir;
++#endif
++            throw std::runtime_error("failed to resolve conda zoneinfo path");
++        }
+         tz_dir = tmp;
+         return tz_dir;
+       }
+     }
+ 
++#if defined(DATE_TZ_STATIC_LIB)
++    tz_dir = discover_tz_dir_from_system();
++    if (!tz_dir.empty()) {
++      return tz_dir;
++    }
++#endif
+     throw std::runtime_error("failed to resolve conda zoneinfo path");
+ }
+ 
+-- 
+2.43.2

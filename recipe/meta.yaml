@@ -17,6 +17,7 @@ source:
   sha256: {{ sha256 }}
   patches:
     - patches/0001-Locate-zoneinfo-based-on-install-prefix.patch
+    - patches/0002-static-library-zoneinfo-discovery.patch
 
 build:
   number: 1
