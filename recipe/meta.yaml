@@ -55,7 +55,6 @@ outputs:
         - cmake
         - {{ compiler('cxx') }}
         - ninja
-        - python
       files:
         - test
       commands:
@@ -65,7 +64,13 @@ outputs:
         - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
         - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
         - if not exist %LIBRARY_PREFIX%\cmake\dateConfig.cmake exit 1  # [win]
-        - python test/check_package_libs.py shared
+        # shared library present, static archive absent
+        - test -n "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz.so*' -print -quit)"  # [linux]
+        - test -n "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz*.dylib' -print -quit)"  # [osx]
+        - test ! -f ${PREFIX}/lib/libdate-tz.a  # [unix]
+        - if not exist %LIBRARY_PREFIX%\bin\date-tz.dll exit 1  # [win]
+        - if not exist %LIBRARY_LIB%\date-tz.lib exit 1  # [win]
+        - if exist %LIBRARY_LIB%\date-tz_static.lib exit 1  # [win]
         - cd test
         - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
         - cmake --build . --config Release
@@ -99,11 +104,22 @@ outputs:
         - cmake
         - {{ compiler('cxx') }}
         - ninja
-        - python
       files:
         - test
       commands:
-        - bash test/run_static_tests.sh  # [unix]
+        # static archive present, shared library absent
+        - test -f ${PREFIX}/lib/libdate-tz.a  # [unix]
+        - test -z "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz.so*' -print -quit)"  # [unix]
+        - test -z "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz*.dylib' -print -quit)"  # [unix]
+        # headers and cmake config
+        - test -d ${PREFIX}/include/date  # [unix]
+        - test -f ${PREFIX}/include/date/date.h  # [unix]
+        - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
+        - cd test
+        - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_TZ=ON
+        - cmake --build . --config Release
+        - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
+        - ./program  # [unix]
 
 about:
   home: http://github.com/HowardHinnant/date
