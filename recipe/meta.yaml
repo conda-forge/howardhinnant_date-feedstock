@@ -76,17 +76,14 @@ outputs:
 
   - name: howardhinnant_date-static
     script: install.sh  # [unix]
-    script: install.bat  # [win]
     build:
+      skip: true  # [win]
       run_exports:
         - tzdata
     files:
       - include/date                                    # [unix]
       - lib/libdate-tz.a                                # [unix]
       - lib/cmake/date                                  # [unix]
-      - {{ install_prefix }}/include/date               # [win]
-      - {{ install_prefix }}/lib/date-tz_static.lib     # [win]
-      - {{ install_prefix }}/cmake                      # [win]
     requirements:
       build:
         - {{ compiler('cxx') }}
@@ -95,8 +92,6 @@ outputs:
         - make  # [unix]
         - pkg-config
         - gnuconfig
-      host:
-        - dirent  # [win]
       run:
         - tzdata
     test:
@@ -109,7 +104,6 @@ outputs:
         - test
       commands:
         - bash test/run_static_tests.sh  # [unix]
-        - test\run_static_tests.bat  # [win]
 
 about:
   home: http://github.com/HowardHinnant/date
