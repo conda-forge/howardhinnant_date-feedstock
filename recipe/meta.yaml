@@ -76,9 +76,16 @@ outputs:
   - name: howardhinnant_date-static
     script: install.sh  # [unix]
     script: install.bat  # [win]
+    build:
+      run_exports:
+        - tzdata
     files:
+      - include/date                                    # [unix]
       - lib/libdate-tz.a                                # [unix]
+      - lib/cmake/date                                  # [unix]
+      - {{ install_prefix }}/include/date               # [win]
       - {{ install_prefix }}/lib/date-tz_static.lib     # [win]
+      - {{ install_prefix }}/cmake                      # [win]
     requirements:
       build:
         - {{ compiler('cxx') }}

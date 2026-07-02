@@ -12,7 +12,7 @@ if(USE_STATIC_TZ)
   if(WIN32)
     set(_date_tz_static_names date-tz_static)
   else()
-    set(_date_tz_static_names date-tz)
+    set(_date_tz_static_names libdate-tz.a)
   endif()
   find_library(
     DATE_TZ_STATIC
