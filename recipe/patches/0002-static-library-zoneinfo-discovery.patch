@@ -8,52 +8,40 @@ executable. The existing conda patch locates zoneinfo relative to the
 loaded module via dladdr, which works for libdate-tz.so in $PREFIX/lib
 but not when the binary is run from a build directory or another path.
 
-Define DATE_TZ_STATIC_LIB when BUILD_SHARED_LIBS=OFF and extend
+Define DATE_TZ_STATIC_LIB when BUILD_SHARED_LIBS=OFF on Unix and extend
 discover_tz_dir() for static archives only:
 
-  1. CONDA_PREFIX or PREFIX/share/zoneinfo (Library/share/zoneinfo on
-     Windows), matching the conda tzdata layout.
+  1. CONDA_PREFIX or PREFIX/share/zoneinfo, matching the conda tzdata layout.
   2. The existing dladdr-based path, if that directory exists.
   3. The system timezone database as a last resort:
      - Linux: /usr/share/zoneinfo
      - macOS: directory derived from the /etc/localtime symlink
-     - Windows: no IANA zoneinfo tree; rely on steps 1 and 2
 
-Shared-library builds are unchanged. This keeps conda environments working
-for static consumers while allowing fallback outside a conda prefix on
-Linux and macOS when tzdata is not available.
+Shared-library builds are unchanged. Windows builds are unchanged.
 ---
  CMakeLists.txt |  3 ++
- src/tz.cpp      | 91 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 94 insertions(+)
+ src/tz.cpp      | 99 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 102 insertions(+)
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 4c7701e..b8a2f4d 100644
+index 7470294..a94c126 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -158,6 +158,9 @@ if( BUILD_TZ_LIB )
  
      if ( USE_SYSTEM_TZ_DB AND NOT MANUAL_TZ_DB )
        target_compile_definitions( date-tz PRIVATE INSTALL=. PUBLIC USE_OS_TZDB=1 )
-+      if ( NOT BUILD_SHARED_LIBS )
++      if ( NOT BUILD_SHARED_LIBS AND NOT WIN32 )
 +        target_compile_definitions( date-tz PRIVATE DATE_TZ_STATIC_LIB=1 )
 +      endif()
      else()
        target_compile_definitions( date-tz PUBLIC USE_OS_TZDB=0 )
      endif()
 diff --git a/src/tz.cpp b/src/tz.cpp
-index ff9d9f8..b7e3a1c 100644
+index ff9d9f8..3d46567 100644
 --- a/src/tz.cpp
 +++ b/src/tz.cpp
-@@ -153,6 +153,7 @@ struct index_entry_t {
- 
- #  include <io.h> // _unlink etc.
- #  include <intrin.h>
-+#  include <cstdlib>
- 
- #  if defined(__clang__)
-     struct IUnknown;    // fix for issue with static_cast<> in objbase.h
-@@ -180,6 +181,8 @@ struct index_entry_t {
+@@ -180,6 +180,8 @@ struct index_entry_t {
  #    include <sys/types.h>
  #  endif //!USE_SHELL_API
  #  include <dlfcn.h>
@@ -62,22 +50,18 @@ index ff9d9f8..b7e3a1c 100644
  #endif  // !_WIN32
  
  
-@@ -480,6 +483,91 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
+@@ -480,6 +482,79 @@ CONSTCD14 const sys_seconds min_seconds = sys_days(min_year/min_day);
  
  #endif  // USE_OS_TZDB
  
++#ifndef _WIN32
 +
 +static
 +bool
 +conda_tzinfo_dir_exists(const std::string& path)
 +{
-+#ifdef _WIN32
-+    const DWORD attrs = GetFileAttributesA(path.c_str());
-+    return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY);
-+#else
 +    struct stat sb;
 +    return stat(path.c_str(), &sb) == 0 && S_ISDIR(sb.st_mode);
-+#endif
 +}
 +
 +#if defined(DATE_TZ_STATIC_LIB)
@@ -90,12 +74,6 @@ index ff9d9f8..b7e3a1c 100644
 +    {
 +        if (const char* prefix = std::getenv(*var))
 +        {
-+#ifdef _WIN32
-+            const std::string library_candidate =
-+                std::string(prefix) + "\\Library\\share\\zoneinfo";
-+            if (conda_tzinfo_dir_exists(library_candidate))
-+                return library_candidate;
-+#endif
 +            const std::string candidate = std::string(prefix) + folder_delimiter + "share"
 +                                        + folder_delimiter + "zoneinfo";
 +            if (conda_tzinfo_dir_exists(candidate))
@@ -109,9 +87,6 @@ index ff9d9f8..b7e3a1c 100644
 +std::string
 +discover_tz_dir_from_system()
 +{
-+#ifdef _WIN32
-+    return {};
-+#else
 +    struct stat sb;
 +    using namespace std;
 +# ifdef __APPLE__
@@ -137,7 +112,6 @@ index ff9d9f8..b7e3a1c 100644
 +        return tz_dir_default;
 +    return {};
 +# endif
-+#endif
 +}
 +
 +static
@@ -151,14 +125,16 @@ index ff9d9f8..b7e3a1c 100644
 +}
 +#endif
 +
++#endif  // !_WIN32
++
  static
  std::string
  discover_tz_dir()
-@@ -499,6 +587,12 @@ discover_tz_dir()
+@@ -499,6 +574,12 @@ discover_tz_dir()
      if (!tz_dir.empty()) {
        return tz_dir;
      }
-+#if defined(DATE_TZ_STATIC_LIB)
++#if defined(DATE_TZ_STATIC_LIB) && !defined(_WIN32)
 +    tz_dir = discover_tz_dir_from_env();
 +    if (!tz_dir.empty()) {
 +      return tz_dir;
@@ -167,10 +143,11 @@ index ff9d9f8..b7e3a1c 100644
  #ifdef _WIN32
      char buffer[MAX_PATH];
      HMODULE hm = NULL;
-@@ -544,11 +638,25 @@ discover_tz_dir()
+@@ -544,11 +625,27 @@ discover_tz_dir()
          tmp += "zoneinfo";
          // std::string constructor for tz_dir deep-copies
          free(this_lib);
++#ifndef _WIN32
 +        if (!conda_tzinfo_dir_exists(tmp)) {
 +#if defined(DATE_TZ_STATIC_LIB)
 +            tz_dir = discover_tz_dir_static_fallback();
@@ -179,12 +156,13 @@ index ff9d9f8..b7e3a1c 100644
 +#endif
 +            throw std::runtime_error("failed to resolve conda zoneinfo path");
 +        }
++#endif
          tz_dir = tmp;
          return tz_dir;
        }
      }
  
-+#if defined(DATE_TZ_STATIC_LIB)
++#if defined(DATE_TZ_STATIC_LIB) && !defined(_WIN32)
 +    tz_dir = discover_tz_dir_from_system();
 +    if (!tz_dir.empty()) {
 +      return tz_dir;
