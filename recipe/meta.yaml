@@ -2,6 +2,11 @@
 {% set version = "3.0.4" %}
 {% set sha256 = "56e05531ee8994124eeb498d0e6a5e1c3b9d4fccbecdf555fe266631368fb55f" %}
 
+{% set install_prefix = "." %}  # [unix]
+{% set install_prefix = "Library" %}  # [win]
+{% set shlib_ext = "so" %}  # [linux]
+{% set shlib_ext = "dylib" %}  # [unix and not linux]
+
 package:
   name: {{ name|lower }}
   version: {{ version }}
@@ -12,48 +17,109 @@ source:
   sha256: {{ sha256 }}
   patches:
     - patches/0001-Locate-zoneinfo-based-on-install-prefix.patch
+    - patches/0002-static-library-zoneinfo-discovery.patch
 
 build:
-  number: 0
+  number: 1
   skip: true  # [win and vc<14]
-  run_exports:
-    - {{ pin_subpackage('howardhinnant_date', max_pin='x.x') }}
 
-requirements:
-  build:
-    - {{ compiler('cxx') }}
-    - {{ stdlib('c') }}
-    - cmake
-    - make  # [unix]
-    - pkg-config
-    - gnuconfig
-  host:
-    - dirent  # [win]
-  run:
-    - tzdata
+outputs:
+  - name: howardhinnant_date
+    script: build_shared.sh  # [unix]
+    script: build_shared.bat  # [win]
+    build:
+      run_exports:
+        - {{ pin_subpackage('howardhinnant_date', max_pin='x.x') }}
+    files:
+      - include/date                                    # [unix]
+      - lib/libdate-tz*.{{ shlib_ext }}*                # [unix]
+      - lib/cmake/date                                  # [unix]
+      - {{ install_prefix }}/include/date               # [win]
+      - {{ install_prefix }}/bin/date-tz.dll            # [win]
+      - {{ install_prefix }}/lib/date-tz.lib            # [win]
+      - {{ install_prefix }}/cmake                      # [win]
+    requirements:
+      build:
+        - {{ compiler('cxx') }}
+        - {{ stdlib('c') }}
+        - cmake
+        - make  # [unix]
+        - pkg-config
+        - gnuconfig
+      host:
+        - dirent  # [win]
+      run:
+        - tzdata
+    test:
+      requires:
+        - cmake
+        - {{ compiler('cxx') }}
+        - ninja
+      files:
+        - test
+      commands:
+        # headers and cmake config
+        - test -d ${PREFIX}/include/date  # [unix]
+        - test -f ${PREFIX}/include/date/date.h  # [unix]
+        - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
+        - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
+        - if not exist %LIBRARY_PREFIX%\cmake\dateConfig.cmake exit 1  # [win]
+        # shared library present, static archive absent
+        - test -n "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz.so*' -print -quit)"  # [linux]
+        - test -n "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz*.dylib' -print -quit)"  # [osx]
+        - test ! -f ${PREFIX}/lib/libdate-tz.a  # [unix]
+        - if not exist %LIBRARY_PREFIX%\bin\date-tz.dll exit 1  # [win]
+        - if not exist %LIBRARY_LIB%\date-tz.lib exit 1  # [win]
+        - if exist %LIBRARY_LIB%\date-tz_static.lib exit 1  # [win]
+        - cd test
+        - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
+        - cmake --build . --config Release
+        - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
+        - mklink %PREFIX%\share\zoneinfo\CondaTest %PREFIX%\share\zoneinfo\UTC  # [win]
+        - ./program  # [unix]
+        - program.exe  # [win]
 
-test:
-  requires:
-    - cmake
-    - {{ compiler('cxx') }}
-    - ninja
-  files:
-    - test
-  commands:
-    - test -d ${PREFIX}/include/date  # [unix]
-    - test -f ${PREFIX}/include/date/date.h  # [unix]
-    - test -f ${PREFIX}/lib/libdate-tz${SHLIB_EXT}  # [unix]
-    - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
-    - if not exist %LIBRARY_PREFIX%\include\date\date.h exit 1  # [win]
-    - if not exist %LIBRARY_PREFIX%\bin\date-tz.dll exit 1  # [win]
-    - if not exist %LIBRARY_PREFIX%\cmake\dateConfig.cmake exit 1  # [win]
-    - cd test
-    - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release
-    - cmake --build . --config Release
-    - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
-    - mklink %PREFIX%\share\zoneinfo\CondaTest %PREFIX%\share\zoneinfo\UTC  # [win]
-    - ./program  # [unix]
-    - program.exe  # [win]
+  - name: howardhinnant_date-static
+    script: build_static.sh  # [unix]
+    build:
+      skip: true  # [win]
+      run_exports:
+        - tzdata
+    files:
+      - include/date                                    # [unix]
+      - lib/libdate-tz.a                                # [unix]
+      - lib/cmake/date                                  # [unix]
+    requirements:
+      build:
+        - {{ compiler('cxx') }}
+        - {{ stdlib('c') }}
+        - cmake
+        - make  # [unix]
+        - pkg-config
+        - gnuconfig
+      run:
+        - tzdata
+    test:
+      requires:
+        - cmake
+        - {{ compiler('cxx') }}
+        - ninja
+      files:
+        - test
+      commands:
+        # static archive present, shared library absent
+        - test -f ${PREFIX}/lib/libdate-tz.a  # [unix]
+        - test -z "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz.so*' -print -quit)"  # [unix]
+        - test -z "$(find ${PREFIX}/lib -maxdepth 1 -name 'libdate-tz*.dylib' -print -quit)"  # [unix]
+        # headers and cmake config
+        - test -d ${PREFIX}/include/date  # [unix]
+        - test -f ${PREFIX}/include/date/date.h  # [unix]
+        - test -f ${PREFIX}/lib/cmake/date/dateConfig.cmake  # [unix]
+        - cd test
+        - cmake . -GNinja -DCMAKE_BUILD_TYPE=Release -DUSE_STATIC_TZ=ON
+        - cmake --build . --config Release
+        - ln -s ${PREFIX}/share/zoneinfo/UTC ${PREFIX}/share/zoneinfo/CondaTest  # [unix]
+        - ./program  # [unix]
 
 about:
   home: http://github.com/HowardHinnant/date
