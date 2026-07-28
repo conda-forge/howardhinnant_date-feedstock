@@ -1,6 +1,6 @@
 {% set name = "howardhinnant_date" %}
-{% set version = "3.0.4" %}
-{% set sha256 = "56e05531ee8994124eeb498d0e6a5e1c3b9d4fccbecdf555fe266631368fb55f" %}
+{% set version = "3.0.5" %}
+{% set sha256 = "ef786edc203daec76475825640b3af247bd08e31fc52217e5ce8f76107b4bb05" %}
 
 {% set install_prefix = "." %}  # [unix]
 {% set install_prefix = "Library" %}  # [win]
@@ -20,7 +20,7 @@ source:
     - patches/0002-static-library-zoneinfo-discovery.patch
 
 build:
-  number: 1
+  number: 0
   skip: true  # [win and vc<14]
 
 outputs:
