@@ -1,6 +1,6 @@
 {% set name = "howardhinnant_date" %}
-{% set version = "3.0.5" %}
-{% set sha256 = "ef786edc203daec76475825640b3af247bd08e31fc52217e5ce8f76107b4bb05" %}
+{% set version = "3.0.6" %}
+{% set sha256 = "19f393877190e346ecbded5df4bbbb9bbfcc5aa57008becafeaacf5ea32d210b" %}
 
 {% set install_prefix = "." %}  # [unix]
 {% set install_prefix = "Library" %}  # [win]
